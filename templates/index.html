@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Face Recognition</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f4f4f4;
+        }
+        h1 {
+            margin-bottom: 20px;
+        }
+        video {
+            display: none; /* Hide the video element */
+        }
+        #canvas {
+            border: 2px solid #ccc;
+            border-radius: 8px;
+            max-width: 100%;
+            width: 600px;
+            height: auto;
+            position: relative;
+        }
+    </style>
+    <script defer>
+        // Function to send the current video frame to the server for face recognition
+        async function processFrame() {
+            const video = document.querySelector('video');
+            const canvas = document.getElementById('canvas');
+            const context = canvas.getContext('2d');
+
+            // Draw the current video frame on the canvas
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            // Convert canvas to base64 image
+            const imageData = canvas.toDataURL('image/jpeg');
+
+            // Send image to the server
+            const response = await fetch('/process_frame', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ image: imageData })
+            });
+            const result = await response.json();
+
+            // Clear the canvas for new drawings
+            context.clearRect(0, 0, canvas.width, canvas.height);
+            context.drawImage(video, 0, 0, canvas.width, canvas.height); // Redraw the video frame
+
+            // Draw rectangles and names on the canvas
+            result.forEach(face => {
+                const { name, location } = face;
+                const [top, right, bottom, left] = location;
+
+                // Draw rectangle around the face
+                context.beginPath();
+                context.rect(left, top, right - left, bottom - top);
+                context.lineWidth = 2;
+                context.strokeStyle = 'green';
+                context.stroke();
+
+                // Draw name above the rectangle
+                context.fillStyle = 'green';
+                context.font = '30px Arial';
+                context.fillText(name, left, top > 10 ? top - 5 : 10); // Adjust text position
+            });
+        }
+
+        // Set an interval to process frames every second
+        setInterval(processFrame, 2000);
+    </script>
+</head>
+<body>
+    <h1>Face Recognition with WebRTC</h1>
+    <video autoplay playsinline></video>
+    <canvas id="canvas"></canvas> <!-- Use canvas for drawing instead -->
+    
+    <script>
+        // WebRTC code to access the user's webcam
+        navigator.mediaDevices.getUserMedia({ video: true })
+            .then(stream => {
+                const video = document.querySelector('video');
+                video.srcObject = stream;
+            })
+            .catch(error => {
+                console.error("Error accessing webcam:", error);
+            });
+    </script>
+</body>
+</html>
